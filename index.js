@@ -6,6 +6,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/* =========================
+   LIVE FIXTURES SCRAPER
+========================= */
+async function fetchLiveFixtures() {
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(
+      "https://www.worldfootball.net/matches/",
+      { signal: controller.signal }
+    );
+
+    const html = await res.text();
+
+    const lines = html.split("\n");
+    const fixtures = lines
+      .filter(line => line.toLowerCase().includes("vs"))
+      .slice(0, 10)
+      .join("\n");
+
+    return fixtures || "No live fixtures found.";
+  } catch (err) {
+    return "Live fixtures temporarily unavailable.";
+  }
+}
+
+/* =========================
+   MAIN API ROUTE
+========================= */
 app.post("/ask", async (req, res) => {
   try {
     const userMessage = req.body.message;
@@ -13,6 +43,22 @@ app.post("/ask", async (req, res) => {
     if (!userMessage) {
       return res.json({ reply: "No message received." });
     }
+
+    const liveFixtures = await fetchLiveFixtures();
+
+    const prompt = `
+You are NeuroGen, a football betting AI.
+
+Assume the fixtures below are REAL and from today.
+
+Today's fixtures:
+${liveFixtures}
+
+User request:
+${userMessage}
+
+Give confident analysis. No disclaimers.
+`;
 
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -25,12 +71,7 @@ app.post("/ask", async (req, res) => {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            {
-              role: "system",
-              content:
-                "You are NeuroGen AI. Be disciplined, analytical, direct, and never reckless."
-            },
-            { role: "user", content: userMessage }
+            { role: "system", content: prompt }
           ]
         })
       }
@@ -38,23 +79,22 @@ app.post("/ask", async (req, res) => {
 
     const data = await response.json();
 
-console.log("OpenAI raw response:", JSON.stringify(data, null, 2));
-
-const reply =
-  data?.choices?.[0]?.message?.content ||
-  data?.choices?.[0]?.text ||
-  "NeuroGen did not receive a valid response.";
-
-res.json({ reply });
+    const reply =
+      data?.choices?.[0]?.message?.content ||
+      "NeuroGen did not receive a valid response.";
 
     res.json({ reply });
-  } catch (error) {
-    res.json({ reply: "NeuroGen backend error." });
+
+  } catch (err) {
+    console.error(err);
+    res.json({ reply: "Internal server error." });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
+/* =========================
+   START SERVER
+========================= */
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log("NeuroGen backend running on port", PORT);
 });
