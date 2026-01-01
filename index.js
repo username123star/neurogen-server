@@ -37,9 +37,15 @@ app.post("/ask", async (req, res) => {
     );
 
     const data = await response.json();
-    const reply =
-      data.choices?.[0]?.message?.content ||
-      "NeuroGen did not receive a valid response.";
+
+console.log("OpenAI raw response:", JSON.stringify(data, null, 2));
+
+const reply =
+  data?.choices?.[0]?.message?.content ||
+  data?.choices?.[0]?.text ||
+  "NeuroGen did not receive a valid response.";
+
+res.json({ reply });
 
     res.json({ reply });
   } catch (error) {
