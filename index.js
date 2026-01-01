@@ -11,25 +11,32 @@ app.use(express.json());
 ========================= */
 async function fetchLiveFixtures() {
   try {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), 5000);
+    const today = new Date().toISOString().split("T")[0];
 
     const res = await fetch(
-      "https://www.worldfootball.net/matches/",
-      { signal: controller.signal }
+      `https://v3.football.api-sports.io/fixtures?date=${today}`,
+      {
+        headers: {
+          "x-apisports-key": process.env.FOOTBALL_API_KEY
+        }
+      }
     );
 
-    const html = await res.text();
+    const data = await res.json();
 
-    const lines = html.split("\n");
-    const fixtures = lines
-      .filter(line => line.toLowerCase().includes("vs"))
-      .slice(0, 10)
+    if (!data.response || data.response.length === 0) {
+      return "No fixtures today.";
+    }
+
+    return data.response
+      .slice(0, 8)
+      .map(f =>
+        `${f.teams.home.name} vs ${f.teams.away.name} (${f.league.name})`
+      )
       .join("\n");
 
-    return fixtures || "No live fixtures found.";
   } catch (err) {
-    return "Live fixtures temporarily unavailable.";
+    return "Live fixtures unavailable.";
   }
 }
 
