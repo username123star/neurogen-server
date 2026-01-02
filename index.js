@@ -75,3 +75,59 @@ app.post("/chat", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`NeuroGen AI running on port ${PORT}`);
 });
+
+// ===== NeuroGen Football Fetcher (DORMANT, ADD-ONLY) =====
+const FootballFetcher = {
+  baseURL: "https://api-football-v1.p.rapidapi.com/v3",
+  apiKey: process.env.FOOTBALL_API_KEY || null,
+
+  isReady() {
+    return !!this.apiKey;
+  },
+
+  headers() {
+    return {
+      "X-RapidAPI-Key": this.apiKey,
+      "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+    };
+  },
+
+  async fetch(endpoint, params = "") {
+    if (!this.isReady()) {
+      throw new Error("Football API key not set");
+    }
+
+    const url = `${this.baseURL}${endpoint}${params}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: this.headers()
+    });
+
+    if (!response.ok) {
+      throw new Error(`Football API error: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  // ---- Prepared methods (NOT used yet) ----
+  getLiveMatches() {
+    return this.fetch("/fixtures", "?live=all");
+  },
+
+  getTodayMatches() {
+    return this.fetch("/fixtures", "?date=" + new Date().toISOString().slice(0, 10));
+  },
+
+  getTeam(teamId) {
+    return this.fetch("/teams", `?id=${teamId}`);
+  },
+
+  getLeague(leagueId, season) {
+    return this.fetch("/leagues", `?id=${leagueId}&season=${season}`);
+  }
+};
+
+// Expose safely (no execution)
+global.NeuroGenFootballFetcher = FootballFetcher;
