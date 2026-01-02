@@ -1,14 +1,15 @@
 {
-  "name": "neurogen-server",
+  "name": "neurogen-backend",
   "version": "1.0.0",
-  "type": "module",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
-  "express": "^4.18.2",
-  "node-fetch": "^3.3.2",
-  "cors": "^2.8.5"
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
   }
 }
