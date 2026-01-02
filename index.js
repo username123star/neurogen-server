@@ -429,3 +429,81 @@ const NeuroGenFootballDataResolver = {
 
 // Expose safely (no execution)
 global.NeuroGenFootballDataResolver = NeuroGenFootballDataResolver;
+
+// ===== NeuroGen Execution Layer (GEN-2.1 WIRED, ADD-ONLY) =====
+app.post("/execute.v2", async (req, res) => {
+  try {
+    const userMessage = req.body.message || "";
+
+    // 1️⃣ Route decision
+    const routePlan = global.NeuroGenRouter
+      ? global.NeuroGenRouter.route(userMessage)
+      : { route: "chat" };
+
+    // 2️⃣ Resolve real football data (if needed)
+    let footballData = null;
+    if (
+      routePlan.route !== "chat" &&
+      global.NeuroGenFootballDataResolver
+    ) {
+      footballData = await global.NeuroGenFootballDataResolver.resolve(
+        userMessage,
+        routePlan
+      );
+    }
+
+    // 3️⃣ Chat intelligence (OpenAI)
+    const openaiRes = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are NeuroGen AI. Speak naturally, clearly, and intelligently. If football data is provided, use it accurately."
+            },
+            {
+              role: "user",
+              content: userMessage
+            }
+          ],
+          temperature: 0.7
+        })
+      }
+    );
+
+    const chatData = await openaiRes.json();
+    const chatReply =
+      chatData.choices?.[0]?.message?.content ||
+      "I’m thinking about that.";
+
+    // 4️⃣ Hybrid composition (THIS IS THE WIRE)
+    const finalReply = global.NeuroGenHybridComposer
+      ? global.NeuroGenHybridComposer.compose({
+          userMessage,
+          chatReply,
+          footballData,
+          routePlan
+        })
+      : chatReply;
+
+    res.json({
+      reply: finalReply,
+      route: routePlan,
+      dataAttached: !!footballData
+    });
+
+  } catch (err) {
+    console.error("Execution v2 error:", err);
+    res.json({
+      reply: "Something interrupted my analysis. Try again."
+    });
+  }
+});
