@@ -171,3 +171,44 @@ const FootballDetectionLayer = {
 
 // Expose safely (no execution)
 global.NeuroGenFootballDetector = FootballDetectionLayer;
+
+// ===== NeuroGen Routing Layer (DORMANT, ADD-ONLY) =====
+const NeuroGenRouter = {
+  route(message = "") {
+    // Default route
+    const routePlan = {
+      route: "chat",        // chat | football | hybrid
+      confidence: 0,
+      reason: "default",
+      meta: {}
+    };
+
+    // Safety check
+    if (!message || typeof message !== "string") {
+      return routePlan;
+    }
+
+    // Football intent detection (if available)
+    if (global.NeuroGenFootballDetector) {
+      const detection = global.NeuroGenFootballDetector.detect(message);
+
+      if (detection.isFootball) {
+        routePlan.route = "football";
+        routePlan.confidence = detection.confidence;
+        routePlan.reason = "football_detected";
+        routePlan.meta.keywords = detection.matches;
+
+        // Low confidence football questions can be hybrid later
+        if (detection.confidence < 0.4) {
+          routePlan.route = "hybrid";
+          routePlan.reason = "mixed_intent";
+        }
+      }
+    }
+
+    return routePlan;
+  }
+};
+
+// Expose safely (no execution)
+global.NeuroGenRouter = NeuroGenRouter;
