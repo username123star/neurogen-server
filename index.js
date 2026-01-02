@@ -131,3 +131,43 @@ const FootballFetcher = {
 
 // Expose safely (no execution)
 global.NeuroGenFootballFetcher = FootballFetcher;
+
+// ===== NeuroGen Football Detection Layer (DORMANT, ADD-ONLY) =====
+const FootballDetectionLayer = {
+  keywords: [
+    "football", "soccer", "match", "fixture", "fixtures",
+    "goal", "goals", "league", "team", "club",
+    "premier league", "la liga", "serie a", "bundesliga",
+    "champions league", "ucl", "uel",
+    "score", "result", "results",
+    "odds", "bet", "betting", "prediction", "predict",
+    "lineup", "formation", "referee", "injury", "squad"
+  ],
+
+  detect(text = "") {
+    if (!text || typeof text !== "string") {
+      return {
+        isFootball: false,
+        confidence: 0,
+        matches: []
+      };
+    }
+
+    const lower = text.toLowerCase();
+    const matches = this.keywords.filter(k => lower.includes(k));
+
+    const confidence = Math.min(
+      1,
+      matches.length / 5
+    );
+
+    return {
+      isFootball: matches.length > 0,
+      confidence,
+      matches
+    };
+  }
+};
+
+// Expose safely (no execution)
+global.NeuroGenFootballDetector = FootballDetectionLayer;
