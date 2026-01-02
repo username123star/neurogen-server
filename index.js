@@ -275,3 +275,80 @@ global.NeuroGenHybridComposer = NeuroGenHybridComposer;
 
 // Expose safely (no execution)
 global.NeuroGenRouter = NeuroGenRouter;
+
+// ===== NeuroGen Execution Layer (GEN-2, ADD-ONLY) =====
+app.post("/execute", async (req, res) => {
+  try {
+    const userMessage = req.body.message || "";
+
+    // 1️⃣ Route decision
+    const routePlan = global.NeuroGenRouter
+      ? global.NeuroGenRouter.route(userMessage)
+      : { route: "chat" };
+
+    let footballData = null;
+
+    // 2️⃣ Fetch football data if needed
+    if (
+      routePlan.route !== "chat" &&
+      global.NeuroGenFootballFetcher &&
+      global.NeuroGenFootballFetcher.isReady()
+    ) {
+      try {
+        footballData = await global.NeuroGenFootballFetcher.getTodayMatches();
+      } catch (e) {
+        console.error("Football fetch failed:", e.message);
+      }
+    }
+
+    // 3️⃣ Chat intelligence (OpenAI)
+    const openaiRes = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are NeuroGen AI. Speak naturally, intelligently, and clearly."
+            },
+            { role: "user", content: userMessage }
+          ],
+          temperature: 0.7
+        })
+      }
+    );
+
+    const chatData = await openaiRes.json();
+    const chatReply =
+      chatData.choices?.[0]?.message?.content ||
+      "I’m thinking about that.";
+
+    // 4️⃣ Compose final response
+    const finalReply = global.NeuroGenHybridComposer
+      ? global.NeuroGenHybridComposer.compose({
+          userMessage,
+          chatReply,
+          footballData,
+          routePlan
+        })
+      : chatReply;
+
+    res.json({
+      reply: finalReply,
+      route: routePlan
+    });
+
+  } catch (err) {
+    console.error("Execution error:", err);
+    res.json({
+      reply: "Something interrupted my thinking. Try again."
+    });
+  }
+});
