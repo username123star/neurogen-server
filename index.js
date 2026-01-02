@@ -1,3 +1,4 @@
+import { analyzeIntent, getDominantIntent } from "./utils/memory.js";
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
@@ -51,12 +52,13 @@ function getNow() {
     iso: now.toISOString(),
   };
 }
+// ==============================
+// INTENT HELPERS
+// ==============================
+function wantsFixtures(text) {
+  if (!text) return false;
 
-/* =========================
-   INTENT DETECTION
-========================= */
-function wantsFixtures(text = "") {
-  return /(fixture|fixtures|matches|games|football today|today)/i.test(text);
+  return /\b(today('|’)s|today)\s+(football\s+)?fixtures\b/i.test(text);
 }
 
 /* =========================
@@ -113,11 +115,14 @@ async function fetchFixtures() {
 ========================= */
 app.post("/ask", async (req, res) => {
   try {
-    const userMessage = req.body.message?.trim();
-     observePsychology(userMessage);
-    if (!userMessage) {
-      return res.json({ reply: "Please enter a message." });
-    }
+    const userMessage = req.body.message;
+
+if (!userMessage) {
+  return res.json({ reply: "Please enter a message." });
+}
+
+analyzeIntent(userMessage);
+observePsychology(userMessage);
 
     const now = getNow();
 
@@ -125,33 +130,38 @@ app.post("/ask", async (req, res) => {
     memory.push({ role: "user", content: userMessage });
     if (memory.length > MAX_MEMORY) memory.shift();
 
-    let systemPrompt;
+    const dominantIntent = getDominantIntent();
 
-    if (wantsFixtures(userMessage)) {
-      const fixtures = await fetchFixtures();
+if (wantsFixtures(userMessage)) {
+  const fixtures = await fetchFixtures();
 
-      systemPrompt = `
+  systemPrompt = `
 You are NeuroGen, a football analysis AI.
 
-As of ${now.date}, ${now.time} (UTC server time):
+Server time (UTC): ${now.date} ${now.time}
 
-The following are REAL fixtures from a live football API:
+Primary user intent: ${dominantIntent}
+
+Below are REAL football fixtures:
 ${fixtures}
 
 Rules:
-- Do not invent matches.
-- Do not mention training data.
-- Be confident and concise.
+- Do NOT invent matches
+- Do NOT hallucinate odds
+- Be concise and confident
 `;
-    } else {
-      systemPrompt = `
-You are NeuroGen, an intelligent assistant.
+} else {
+  systemPrompt = `
+You are NeuroGen.
 
-As of ${now.date}, ${now.time}:
+Primary user intent: ${dominantIntent}
 
-Respond naturally, clearly, and helpfully.
+Respond naturally and intelligently.
+Only answer what is asked.
+Do NOT assume requests.
+Do NOT invent data.
 `;
-    }
+}
 
     const response = await fetch(
       "https://api.openai.com/v1/chat/completions",
