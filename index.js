@@ -2,6 +2,7 @@
 // NEUROGEN — SINGLE FILE BACKEND (STABLE FOUNDATION)
 // =====================================================
 
+const fetch = require("node-fetch");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
