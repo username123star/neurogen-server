@@ -1,3 +1,9 @@
+// ===== NeuroGen Fetch Polyfill Guard (ADD-ONLY, SAFE) =====
+if (typeof fetch === "undefined") {
+  global.fetch = (...args) =>
+    import("node-fetch").then(({ default: fetch }) => fetch(...args));
+}
+
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
