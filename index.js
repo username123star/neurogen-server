@@ -352,3 +352,80 @@ app.post("/execute", async (req, res) => {
     });
   }
 });
+
+// ===== NeuroGen Football Real Data Resolver (ADD-ONLY) =====
+const NeuroGenFootballDataResolver = {
+  async resolve(message, routePlan = {}) {
+    if (
+      !global.NeuroGenFootballFetcher ||
+      !global.NeuroGenFootballFetcher.isReady()
+    ) {
+      return null;
+    }
+
+    // Default: today fixtures
+    if (routePlan.route === "football" || routePlan.route === "hybrid") {
+      return this.getTodayFixtures();
+    }
+
+    return null;
+  },
+
+  async getTodayFixtures() {
+    try {
+      const data = await global.NeuroGenFootballFetcher.getTodayMatches();
+      return {
+        type: "fixtures_today",
+        data
+      };
+    } catch (e) {
+      console.error("Football resolver error:", e.message);
+      return null;
+    }
+  },
+
+  async getLiveFixtures() {
+    try {
+      const data = await global.NeuroGenFootballFetcher.getLiveMatches();
+      return {
+        type: "fixtures_live",
+        data
+      };
+    } catch (e) {
+      console.error("Football resolver error:", e.message);
+      return null;
+    }
+  },
+
+  async getTeamInfo(teamId) {
+    try {
+      const data = await global.NeuroGenFootballFetcher.getTeam(teamId);
+      return {
+        type: "team_info",
+        data
+      };
+    } catch (e) {
+      console.error("Team fetch error:", e.message);
+      return null;
+    }
+  },
+
+  async getLeagueInfo(leagueId, season) {
+    try {
+      const data = await global.NeuroGenFootballFetcher.getLeague(
+        leagueId,
+        season
+      );
+      return {
+        type: "league_info",
+        data
+      };
+    } catch (e) {
+      console.error("League fetch error:", e.message);
+      return null;
+    }
+  }
+};
+
+// Expose safely (no execution)
+global.NeuroGenFootballDataResolver = NeuroGenFootballDataResolver;
