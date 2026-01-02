@@ -1,118 +1,93 @@
 /**
- * FOOTBALL ENGINE
- * --------------------------------
+ * FOOTBALL ENGINE (FAIL-SAFE)
  * Responsibilities:
- * - Football analysis
- * - Fixture reasoning
- * - Correct score prediction
- * - Match psychology & motivation
- *
- * NEVER:
- * - Talks about non-football topics
- * - Touches Express or routes
+ * - Match analysis
+ * - Psychology & motivation
+ * - Correct score reasoning
+ * GUARANTEE: Always returns a string
  */
 
 const { callOpenAI } = require("../core/openai");
 const { getNow } = require("../utils/time");
 const { trace } = require("../utils/trace");
 
-/**
- * Match psychology inference
- */
-function analyzeMatchPsychology(text = "") {
-  const lower = text.toLowerCase();
+async function footballEngine({ message, fixtures = "" }) {
+  try {
+    trace("FOOTBALL_ENGINE_START");
 
-  return {
-    mustWin: /must win|do or die|final|relegation|qualification/.test(lower),
-    highRisk: /correct score|exact score|high odds/.test(lower),
-    safeMode: /safe|low risk|sure|banker/.test(lower),
-  };
-}
+    const now = getNow();
 
-/**
- * Correct score boundaries (anti-hallucination)
- */
-function getScoreBounds(psychology) {
-  if (psychology.highRisk) {
-    return ["1-0", "2-0", "2-1", "1-1", "0-1"];
+    // 🔒 Absolute fallback (used if anything fails)
+    const fallbackReply = `
+I couldn't complete a deep analysis right now.
+
+General insight:
+- Matches today are often tight
+- Motivation, home advantage, and squad depth decide outcomes
+- Common safe correct scores: 1-0, 1-1, 2-1
+
+Try again shortly for deeper analysis.
+`.trim();
+
+    // 🧠 System prompt (psychology + score logic INCLUDED)
+    const systemPrompt = `
+You are NeuroGen, a professional football analysis AI.
+
+Server time: ${now.date} ${now.time}
+
+Your responsibilities:
+- Tactical analysis
+- Match psychology & motivation
+- Correct score prediction with reasoning
+
+Rules:
+- Do NOT invent fixtures
+- If data is insufficient, give probabilistic reasoning
+- Always conclude with:
+  • Likely outcome
+  • 1–2 correct score candidates
+  • Short psychology note
+
+Available fixtures:
+${fixtures || "No confirmed fixtures provided."}
+`.trim();
+
+    // 🧠 Call OpenAI WITH TIME SAFETY
+    const response = await Promise.race([
+      callOpenAI({
+        system: systemPrompt,
+        user: message,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("OpenAI timeout")), 12_000)
+      ),
+    ]);
+
+    // 🛑 Guard: OpenAI returned nothing
+    if (!response || typeof response !== "string") {
+      trace("FOOTBALL_ENGINE_EMPTY_RESPONSE");
+      return fallbackReply;
+    }
+
+    trace("FOOTBALL_ENGINE_SUCCESS");
+    return response;
+  } catch (err) {
+    trace("FOOTBALL_ENGINE_ERROR", err.message);
+
+    // 🚑 FINAL GUARANTEE RESPONSE
+    return `
+Temporary analysis issue detected.
+
+Quick football logic:
+- Expect cautious starts
+- Goals usually come after halftime
+- Psychological pressure favors disciplined teams
+
+Likely correct scores:
+• 1-0
+• 1-1
+`.trim();
   }
-
-  return ["1-0", "1-1", "2-1"];
 }
 
-/**
- * Builds football system prompt
- */
-function buildFootballPrompt({ now, psychology, fixtures, scoreBounds }) {
-  return `
-You are NeuroGen — an elite football analysis AI.
-
-Server time (UTC): ${now.date} ${now.time}
-
-Fixtures provided below are REAL.
-DO NOT invent matches.
-DO NOT hallucinate odds.
-
-Match psychology:
-- Must-win: ${psychology.mustWin}
-- High-risk request: ${psychology.highRisk}
-- Safe mode: ${psychology.safeMode}
-
-Allowed correct score predictions:
-${scoreBounds.join(", ")}
-
-Your tasks:
-1. Analyze team strength & motivation
-2. Predict match outcome
-3. Provide ONE realistic correct score
-4. Keep reasoning concise and confident
-
-Fixtures:
-${fixtures}
-`;
-}
-
-/**
- * MAIN FOOTBALL ENGINE
- */
-async function runFootballEngine({
-  userMessage,
-  fixtures,
-  memory = [],
-}) {
-  trace("FOOTBALL_ENGINE_START");
-
-  const now = getNow();
-  const psychology = analyzeMatchPsychology(userMessage);
-  const scoreBounds = getScoreBounds(psychology);
-
-  const systemPrompt = buildFootballPrompt({
-    now,
-    psychology,
-    fixtures,
-    scoreBounds,
-  });
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    ...memory,
-    { role: "user", content: userMessage },
-  ];
-
-  const reply = await callOpenAI({
-    messages,
-    temperature: psychology.highRisk ? 0.6 : 0.4,
-  });
-
-  trace("FOOTBALL_ENGINE_END");
-
-  return {
-    reply,
-    psychology,
-    scoreBounds,
-  };
-}
-
-module.exports = {
-  runFootballEngine,
-};
+module.exports = footballEngine;
