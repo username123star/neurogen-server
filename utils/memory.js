@@ -1,24 +1,38 @@
 // utils/memory.js
+// NeuroGen Learning Memory Core (SAFE, CAPPED)
 
-const MAX_SIGNALS = 5;
+const intentStats = {
+  betting: 0,
+  psychology: 0,
+  urgency: 0,
+  exploration: 0
+};
 
-export function updateMemory(memory = [], newSignal) {
-  const cleaned = Array.isArray(memory) ? memory : [];
+export function analyzeIntent(text) {
+  const lower = text.toLowerCase();
 
-  if (!newSignal || newSignal === "none") {
-    return cleaned.slice(-MAX_SIGNALS);
+  if (/(bet|odds|fixture|match|prediction)/.test(lower)) {
+    intentStats.betting++;
   }
 
-  const updated = [...cleaned, newSignal];
-  return updated.slice(-MAX_SIGNALS);
+  if (/(feel|mind|stress|control|discipline|addiction|emotion)/.test(lower)) {
+    intentStats.psychology++;
+  }
+
+  if (/(now|urgent|immediately|no error|asap|god mode)/.test(lower)) {
+    intentStats.urgency++;
+  }
+
+  if (/(learn|explain|how does|why|theory)/.test(lower)) {
+    intentStats.exploration++;
+  }
 }
 
-export function summarizeMemory(memory = []) {
-  const counts = {};
+export function getDominantIntent() {
+  return Object.entries(intentStats)
+    .sort((a, b) => b[1] - a[1])[0][0];
+}
 
-  for (const sig of memory) {
-    counts[sig] = (counts[sig] || 0) + 1;
-  }
-
-  return counts;
+export function getIntentSnapshot() {
+  return { ...intentStats };
 }
