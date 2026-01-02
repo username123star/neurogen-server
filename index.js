@@ -202,6 +202,69 @@ const NeuroGenRouter = {
         if (detection.confidence < 0.4) {
           routePlan.route = "hybrid";
           routePlan.reason = "mixed_intent";
+
+          // ===== NeuroGen Hybrid Composer (DORMANT, ADD-ONLY) =====
+const NeuroGenHybridComposer = {
+  compose({ userMessage, chatReply, footballData, routePlan }) {
+    // Default: pure chat
+    if (!routePlan || routePlan.route === "chat") {
+      return chatReply;
+    }
+
+    // Pure football (future)
+    if (routePlan.route === "football") {
+      return this.composeFootballOnly(userMessage, footballData);
+    }
+
+    // Hybrid response
+    if (routePlan.route === "hybrid") {
+      return this.composeHybrid(userMessage, chatReply, footballData);
+    }
+
+    // Fallback
+    return chatReply;
+  },
+
+  composeFootballOnly(userMessage, footballData) {
+    if (!footballData) {
+      return "I can help with football analysis, but I need match data to proceed.";
+    }
+
+    return `
+Here’s what I found based on current football data:
+
+${JSON.stringify(footballData, null, 2)}
+    `.trim();
+  },
+
+  composeHybrid(userMessage, chatReply, footballData) {
+    let response = "";
+
+    // Start with conversational intelligence
+    if (chatReply) {
+      response += chatReply.trim();
+    }
+
+    // Add football insight if available
+    if (footballData) {
+      response += `
+
+Based on live football information:
+${this.summarizeFootballData(footballData)}
+      `.trim();
+    }
+
+    return response;
+  },
+
+  summarizeFootballData(data) {
+    // Placeholder summarizer (no execution yet)
+    return "Relevant match insights are available.";
+  }
+};
+
+// Expose safely (no execution)
+global.NeuroGenHybridComposer = NeuroGenHybridComposer;
         }
       }
     }
