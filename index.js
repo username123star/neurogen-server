@@ -1,8 +1,34 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
+import { updateMemory, summarizeMemory } from "./utils/memory.js";
+import { confirmEscalation, detectOverride } from "./utils/guards.js";
+import { trace } from "./utils/trace.js";
 
 const app = express();
+// --- NeuroGen Internal State (safe initialization) ---
+let signalMemory = [];
+let lastSeverity = 0;
+// --- Engine 1: Psychology Observer (READ-ONLY) ---
+function observePsychology(userText) {
+  const severity = confirmEscalation(userText);
+  const override = detectOverride(userText);
+
+  const signal = {
+    time: new Date().toISOString(),
+    severity,
+    override,
+    length: userText.length
+  };
+
+  signalMemory.push(signal);
+
+  if (signalMemory.length > 50) {
+    signalMemory.shift(); // cap memory
+  }
+
+  lastSeverity = severity;
+}
 app.use(cors());
 app.use(express.json());
 
@@ -88,6 +114,7 @@ async function fetchFixtures() {
 app.post("/ask", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
+     observePsychology(userMessage);
     if (!userMessage) {
       return res.json({ reply: "Please enter a message." });
     }
