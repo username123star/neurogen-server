@@ -60,6 +60,32 @@ function wantsFixtures(text) {
 
   return /\b(today('|’)s|today)\s+(football\s+)?fixtures\b/i.test(text);
 }
+// =========================
+// INTENT & PSYCHOLOGY STUBS (SAFE)
+// =========================
+
+function analyzeIntent(text) {
+  // placeholder for future intent analytics
+  return null;
+}
+
+function observePsychology(text) {
+  // placeholder for future psychology signals
+  return null;
+}
+
+function getDominantIntent(text = "") {
+  if (/fixture|fixtures|match|matches|odds|bet/i.test(text)) {
+    return "football_analysis";
+  }
+
+  if (/how|why|explain|what is/i.test(text)) {
+    return "explanation";
+  }
+
+  return "general";
+}
+
 
 /* =========================
    REAL FOOTBALL API
