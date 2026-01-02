@@ -507,3 +507,79 @@ app.post("/execute.v2", async (req, res) => {
     });
   }
 });
+
+// ===== NeuroGen Execution Layer (GEN-2.2 TRUTH-AWARE, ADD-ONLY) =====
+app.post("/execute.v3", async (req, res) => {
+  try {
+    const userMessage = req.body.message || "";
+
+    // 1️⃣ Route
+    const routePlan = global.NeuroGenRouter
+      ? global.NeuroGenRouter.route(userMessage)
+      : { route: "chat" };
+
+    // 2️⃣ Real football data
+    let footballData = null;
+    if (
+      routePlan.route !== "chat" &&
+      global.NeuroGenFootballDataResolver
+    ) {
+      footballData = await global.NeuroGenFootballDataResolver.resolve(
+        userMessage,
+        routePlan
+      );
+    }
+
+    // 3️⃣ SYSTEM PROMPT WITH TRUTH
+    let systemPrompt =
+      "You are NeuroGen AI. Speak naturally, clearly, and intelligently.";
+
+    if (footballData) {
+      systemPrompt += `
+IMPORTANT:
+You have been provided with REAL, CURRENT football data.
+You MUST use it.
+Do NOT say you lack real-time access.
+Football data:
+${JSON.stringify(footballData, null, 2)}
+`;
+    }
+
+    // 4️⃣ OpenAI call (NOW INFORMED)
+    const openaiRes = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage }
+          ],
+          temperature: 0.7
+        })
+      }
+    );
+
+    const chatData = await openaiRes.json();
+    const reply =
+      chatData.choices?.[0]?.message?.content ||
+      "I’m analyzing the available data.";
+
+    res.json({
+      reply,
+      route: routePlan,
+      dataAttached: !!footballData
+    });
+
+  } catch (err) {
+    console.error("Execution v3 error:", err);
+    res.json({
+      reply: "Something interrupted my analysis. Try again."
+    });
+  }
+});
